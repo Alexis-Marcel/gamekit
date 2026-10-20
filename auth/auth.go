@@ -6,7 +6,9 @@
 //     Authelia, Google…), vérifié par sa JWKS ;
 //   - proxy : en-tête posé par un reverse proxy qui authentifie déjà (forward
 //     auth d'Authelia ou d'Authentik, Tailscale Serve), cru seulement s'il
-//     vient d'une adresse de confiance.
+//     vient d'une adresse de confiance ;
+//   - local : comptes intégrés au jeu (nom d'utilisateur et mot de passe),
+//     avec leurs pages sous /compte/ (voir Local).
 //
 // Le compte est toujours facultatif pour le jeu lui-même : une place se tient
 // par son jeton de place. Avec GUEST_PLAY=false, le jeu exige un compte pour
@@ -38,11 +40,12 @@ type Authenticator interface {
 
 // Info est servi tel quel au front (dans /api/config).
 type Info struct {
-	Mode        string     `json:"mode"`                  // none, oidc, proxy
+	Mode        string     `json:"mode"`                  // none, oidc, proxy, local
 	AccountName string     `json:"accountName,omitempty"` // « Se connecter avec … » ; vide : « Se connecter »
 	GuestPlay   bool       `json:"guestPlay"`             // jouer sans compte est permis
 	OIDC        *OIDCInfo  `json:"oidc,omitempty"`
 	Proxy       *ProxyInfo `json:"proxy,omitempty"`
+	Local       *LocalInfo `json:"local,omitempty"`
 }
 
 // ProxyInfo : où envoyer pour se connecter ou se déconnecter (chez le proxy).
@@ -60,6 +63,7 @@ const (
 	ModeNone  = "none"
 	ModeOIDC  = "oidc"
 	ModeProxy = "proxy"
+	ModeLocal = "local"
 )
 
 // Config est la configuration d'authentification d'un jeu.
@@ -76,12 +80,17 @@ type Config struct {
 	TrustedProxies  []netip.Prefix // obligatoire en mode proxy
 	ProxyLoginURL   string
 	ProxyLogoutURL  string
+
+	Signup     string     // mode local : open, invite (défaut), closed
+	LocalStore LocalStore // mode local : fournie par le jeu, pas par l'environnement
+	Theme      Theme      // mode local : couleurs des pages de comptes, fournies par le jeu
 }
 
 // FromEnv lit AUTH_MODE, ACCOUNT_NAME, GUEST_PLAY (vrai par défaut), OIDC_ISSUER,
 // OIDC_CLIENT_ID (défaut : clientID, le nom du jeu), OIDC_AUDIENCE, et pour le
 // mode proxy PROXY_USER_HEADER, PROXY_NAME_HEADER, TRUSTED_PROXIES (adresses ou
-// plages séparées par des virgules), PROXY_LOGIN_URL et PROXY_LOGOUT_URL.
+// plages séparées par des virgules), PROXY_LOGIN_URL et PROXY_LOGOUT_URL, et pour
+// le mode local SIGNUP.
 func FromEnv(getenv func(string) string, clientID string) (Config, error) {
 	c := Config{
 		Mode:         strings.ToLower(strings.TrimSpace(getenv("AUTH_MODE"))),
@@ -95,6 +104,7 @@ func FromEnv(getenv func(string) string, clientID string) (Config, error) {
 		ProxyNameHeader: strings.TrimSpace(getenv("PROXY_NAME_HEADER")),
 		ProxyLoginURL:   strings.TrimSpace(getenv("PROXY_LOGIN_URL")),
 		ProxyLogoutURL:  strings.TrimSpace(getenv("PROXY_LOGOUT_URL")),
+		Signup:          strings.ToLower(strings.TrimSpace(getenv("SIGNUP"))),
 	}
 	for _, f := range strings.Split(getenv("TRUSTED_PROXIES"), ",") {
 		if f = strings.TrimSpace(f); f == "" {
@@ -159,8 +169,10 @@ func New(ctx context.Context, c Config, log *slog.Logger) (Authenticator, error)
 		}
 		info.Proxy = &ProxyInfo{LoginURL: c.ProxyLoginURL, LogoutURL: c.ProxyLogoutURL}
 		return newProxy(c, info), nil
+	case ModeLocal:
+		return newLocal(c, info, log)
 	}
-	return nil, fmt.Errorf("AUTH_MODE : %q inconnu (none, oidc, proxy)", c.Mode)
+	return nil, fmt.Errorf("AUTH_MODE : %q inconnu (none, oidc, proxy, local)", c.Mode)
 }
 
 // None : pas de comptes.
@@ -168,6 +180,12 @@ type None struct{}
 
 func (None) User(*http.Request) *User { return nil }
 func (None) Info() Info               { return Info{Mode: ModeNone, GuestPlay: true} }
+
+// Mounter : une authentification qui sert ses propres pages (mode local). Le
+// jeu les monte sur son routeur : if m, ok := a.(auth.Mounter); ok { m.Mount(mux) }.
+type Mounter interface {
+	Mount(mux *http.ServeMux)
+}
 
 // Func adapte une fonction en Authenticator, pour les tests des jeux.
 type Func func(r *http.Request) *User

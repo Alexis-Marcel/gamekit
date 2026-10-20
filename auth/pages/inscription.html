@@ -1,0 +1,23 @@
+{{define "inscription"}}{{template "top" .}}
+{{if .First}}
+<h1>Créer le premier compte</h1>
+<p class="lede">Il sera administrateur : c'est lui qui invitera les autres.</p>
+{{else}}
+<h1>Créer un compte</h1>
+<p class="lede">Pour garder tes parties sur {{.Theme.Title}}.</p>
+{{end}}
+{{if .CanSignup}}
+<form class="card" method="post" action="/compte/inscription">
+  <input type="hidden" name="next" value="{{.Next}}">
+  <input type="hidden" name="invitation" value="{{.Invitation}}">
+  <label><span>Nom d'utilisateur</span><input type="text" name="username" value="{{.Username}}" autocomplete="username" autocapitalize="none" pattern="[a-zA-Z0-9][a-zA-Z0-9._\-]{2,31}" required autofocus></label>
+  <label><span>Nom affiché (facultatif)</span><input type="text" name="name" value="{{.Name}}" autocomplete="nickname" maxlength="40"></label>
+  <label><span>Mot de passe (10 caractères au moins)</span><input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
+  <label><span>Encore une fois</span><input type="password" name="password2" autocomplete="new-password" minlength="10" required></label>
+  <button class="full">Créer mon compte</button>
+</form>
+{{else}}
+<p class="card">{{if eq .Signup "invite"}}Les comptes se créent sur invitation : demande un lien à un administrateur.{{else}}Les inscriptions sont fermées.{{end}}</p>
+{{end}}
+<p class="links">Déjà un compte ? <a href="/compte/connexion?next={{.Next}}">Se connecter</a></p>
+{{template "bottom" .}}{{end}}

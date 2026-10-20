@@ -1,0 +1,10 @@
+{{define "reinitialisation"}}{{template "top" .}}
+<h1>Nouveau mot de passe</h1>
+<p class="lede">Choisis ton nouveau mot de passe. Tes appareils seront déconnectés.</p>
+<form class="card" method="post" action="/compte/reinitialisation">
+  <input type="hidden" name="code" value="{{.Code}}">
+  <label><span>Nouveau mot de passe (10 caractères au moins)</span><input type="password" name="password" autocomplete="new-password" minlength="10" required autofocus></label>
+  <label><span>Encore une fois</span><input type="password" name="password2" autocomplete="new-password" minlength="10" required></label>
+  <button class="full">Enregistrer</button>
+</form>
+{{template "bottom" .}}{{end}}

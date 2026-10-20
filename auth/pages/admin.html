@@ -1,0 +1,32 @@
+{{define "admin"}}{{template "top" .}}
+<h1>Administration</h1>
+<p class="lede">Inscription : {{if eq .Signup "open"}}libre{{else if eq .Signup "invite"}}sur invitation{{else}}fermée{{end}}.</p>
+
+{{if .Link}}
+<h2>{{.LinkTitle}}</h2>
+<p>{{.LinkHelp}}</p>
+<p class="copy">{{.Link}}</p>
+{{end}}
+
+<h2>Inviter quelqu'un</h2>
+<form class="row" method="post" action="/compte/admin/invitation">
+  <button>Créer un lien d'invitation</button>
+  <span class="muted">Valable 7 jours, pour un seul compte.</span>
+</form>
+
+<h2>Comptes</h2>
+<table>
+  <thead><tr><th>Nom</th><th>Utilisateur</th><th>Créé le</th><th></th></tr></thead>
+  <tbody>
+  {{range .Accounts}}
+    <tr>
+      <td>{{.Name}}{{if .Admin}} <span class="tag">admin</span>{{end}}</td>
+      <td>{{.Username}}</td>
+      <td>{{.Created.Format "02/01/2006"}}</td>
+      <td><form method="post" action="/compte/admin/reinitialisation"><input type="hidden" name="account" value="{{.ID}}"><button class="quiet">Lien de nouveau mot de passe</button></form></td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+<p class="links"><a href="/compte/">← Mon compte</a></p>
+{{template "bottom" .}}{{end}}

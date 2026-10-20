@@ -1,0 +1,13 @@
+{{define "connexion"}}{{template "top" .}}
+<h1>Se connecter</h1>
+<p class="lede">Avec ton compte {{.Theme.Title}}, tes parties sont gardées.</p>
+<form class="card" method="post" action="/compte/connexion">
+  <input type="hidden" name="next" value="{{.Next}}">
+  <label><span>Nom d'utilisateur</span><input type="text" name="username" value="{{.Username}}" autocomplete="username" autocapitalize="none" required autofocus></label>
+  <label><span>Mot de passe</span><input type="password" name="password" autocomplete="current-password" required></label>
+  <button class="full">Se connecter</button>
+</form>
+<p class="links">
+  {{if .CanSignup}}Pas encore de compte ? <a href="/compte/inscription?next={{.Next}}">Créer un compte</a>{{else if eq .Signup "invite"}}Les comptes se créent sur invitation.{{end}}
+</p>
+{{template "bottom" .}}{{end}}

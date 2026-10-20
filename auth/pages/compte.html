@@ -1,0 +1,26 @@
+{{define "compte"}}{{template "top" .}}
+<h1>{{.Account.Name}}</h1>
+<p class="lede">{{.Account.Username}}{{if .Account.Admin}} <span class="tag">administrateur</span>{{end}}</p>
+
+<h2>Nom affiché</h2>
+<form class="card" method="post" action="/compte/nom">
+  <label><span>Nom que voient les autres joueurs</span><input type="text" name="name" value="{{.Account.Name}}" maxlength="40" required></label>
+  <button>Enregistrer</button>
+</form>
+
+<h2>Mot de passe</h2>
+<form class="card" method="post" action="/compte/mot-de-passe">
+  <input type="text" name="username" value="{{.Account.Username}}" autocomplete="username" hidden>
+  <label><span>Mot de passe actuel</span><input type="password" name="current" autocomplete="current-password" required></label>
+  <label><span>Nouveau mot de passe (10 caractères au moins)</span><input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
+  <label><span>Encore une fois</span><input type="password" name="password2" autocomplete="new-password" minlength="10" required></label>
+  <button>Changer le mot de passe</button>
+</form>
+<p class="muted" style="margin-top:8px">Tes autres appareils seront déconnectés.</p>
+
+<h2>Session</h2>
+<div class="row">
+  {{if .Account.Admin}}<a class="btn quiet" href="/compte/admin">Administration</a>{{end}}
+  <form method="post" action="/compte/deconnexion"><button class="quiet">Se déconnecter</button></form>
+</div>
+{{template "bottom" .}}{{end}}

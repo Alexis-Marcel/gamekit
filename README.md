@@ -11,7 +11,7 @@ La méthode se choisit par variables d'environnement, à la manière des apps *a
 
 | Variable | Valeurs | Défaut |
 |---|---|---|
-| `AUTH_MODE` | `none` : pas de comptes ; `oidc` : un fournisseur OIDC (Authentik, Keycloak, Authelia, Google…) ; `proxy` : un reverse proxy qui authentifie déjà | `oidc` si `OIDC_ISSUER` est donné, sinon `none` |
+| `AUTH_MODE` | `none` : pas de comptes ; `oidc` : un fournisseur OIDC (Authentik, Keycloak, Authelia, Google…) ; `proxy` : un reverse proxy qui authentifie déjà ; `local` : comptes intégrés au jeu | `oidc` si `OIDC_ISSUER` est donné, sinon `none` |
 | `GUEST_PLAY` | `true` : on peut jouer sans compte ; `false` : compte exigé pour créer ou rejoindre une partie | `true` |
 | `ACCOUNT_NAME` | nom du fournisseur dans l'interface (« Se connecter avec … ») | vide : « Se connecter » |
 | `OIDC_ISSUER` | URL de l'émetteur (avec `/.well-known/openid-configuration`) | |
@@ -21,6 +21,7 @@ La méthode se choisit par variables d'environnement, à la manière des apps *a
 | `PROXY_USER_HEADER` | en-tête de l'identifiant | `Remote-User` |
 | `PROXY_NAME_HEADER` | en-tête du nom affiché | `Remote-Name` |
 | `PROXY_LOGIN_URL`, `PROXY_LOGOUT_URL` | pages de connexion et de déconnexion du proxy, pour les boutons de l'interface | aucun bouton |
+| `SIGNUP` | mode `local` : `open` (libre), `invite` (sur lien d'un administrateur) ou `closed` | `invite` |
 
 En mode `oidc`, le front se connecte lui-même et envoie le jeton d'accès (`Authorization: Bearer`,
 ou `?access_token=` pour un WebSocket). Le serveur le vérifie par la JWKS du fournisseur, en épinglant
@@ -40,7 +41,28 @@ elle-même vient d'une adresse de `TRUSTED_PROXIES` (jamais d'après `X-Forwarde
 joignable que par le proxy, sinon n'importe qui pourrait se faire passer pour quelqu'un. Changer de mode
 change les identifiants : les parties déjà jouées restent liées aux anciens comptes.
 
-À venir : `local` (comptes intégrés au jeu).
+En mode `local`, les comptes vivent dans la base du jeu (tables `auth_*`, SQLite ou Postgres avec `SQLStore`) :
+un compte d'un jeu n'est pas un compte d'un autre ; pour partager des comptes entre plusieurs jeux, passer par
+`oidc`. Les pages (connexion, inscription, compte, administration, nouveau mot de passe) sont servies sous
+`/compte/` par le module lui-même, sans JavaScript, aux couleurs que le jeu donne (`Theme`). Tant qu'il n'existe
+aucun compte, la première inscription est ouverte et ce compte est administrateur ; il crée ensuite les liens
+d'invitation et les liens de nouveau mot de passe.
+
+- Mots de passe : argon2id (paramètres OWASP), 10 caractères au moins ; même temps de réponse que le compte
+  existe ou non.
+- Session : jeton aléatoire dans un cookie `HttpOnly`, `SameSite=Lax` ; la base n'en garde que le SHA-256.
+- Formulaires refusés s'ils ne viennent pas du site (`Origin`), et requêtes du jeu venues d'un autre site
+  traitées en invité.
+- Tentatives limitées : 5 par minute pour un même compte, 30 par adresse.
+
+```go
+store, err := auth.NewSQLStore(ctx, db, auth.SQLite)
+cfg.LocalStore, cfg.Theme = store, auth.Theme{Title: "Orapa", Accent: "#3e7bfa"}
+a, err := auth.New(ctx, cfg, log)
+if m, ok := a.(auth.Mounter); ok {
+	m.Mount(mux) // pages /compte/
+}
+```
 
 ## Licence
 
