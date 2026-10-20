@@ -65,6 +65,22 @@ if m, ok := a.(auth.Mounter); ok {
 }
 ```
 
+## portal : la barre d'un portail (facultative)
+
+Quand un jeu fait partie d'un ensemble d'applications (un portail maison, par exemple), une barre discrète
+au-dessus du jeu ramène à l'accueil du portail et au profil de la personne. Sans `PORTAL_URL`, pas de barre.
+
+| Variable | Rôle |
+|---|---|
+| `PORTAL_URL` | accueil du portail (active la barre) |
+| `PORTAL_NAME` | nom affiché (défaut : l'hôte de `PORTAL_URL`) |
+| `PORTAL_ICON` | icône du portail (URL d'une image) |
+| `PROFILE_URL` | page de profil, affichée aux personnes connectées |
+
+```go
+cfg["portal"] = portal.FromEnv(os.Getenv) // nil sans portail, à servir dans /api/config
+```
+
 ## Licence
 
 MIT
