@@ -3,7 +3,10 @@
 //
 //   - none : pas de comptes, tout le monde joue en invité ;
 //   - oidc : jeton d'accès d'un fournisseur OIDC (Authentik, Keycloak,
-//     Authelia, Google…), vérifié par sa JWKS.
+//     Authelia, Google…), vérifié par sa JWKS ;
+//   - proxy : en-tête posé par un reverse proxy qui authentifie déjà (forward
+//     auth d'Authelia ou d'Authentik, Tailscale Serve), cru seulement s'il
+//     vient d'une adresse de confiance.
 //
 // Le compte est toujours facultatif pour le jeu lui-même : une place se tient
 // par son jeton de place. Avec GUEST_PLAY=false, le jeu exige un compte pour
@@ -15,13 +18,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strings"
 )
 
 // User est un compte : ID est stable (le sub OIDC), Name est le nom affiché.
 type User struct {
-	ID   string
-	Name string
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // Authenticator renvoie le compte d'une requête, nil pour un invité (pas de
@@ -34,10 +38,17 @@ type Authenticator interface {
 
 // Info est servi tel quel au front (dans /api/config).
 type Info struct {
-	Mode        string    `json:"mode"`                  // none, oidc
-	AccountName string    `json:"accountName,omitempty"` // « Se connecter avec … » ; vide : « Se connecter »
-	GuestPlay   bool      `json:"guestPlay"`             // jouer sans compte est permis
-	OIDC        *OIDCInfo `json:"oidc,omitempty"`
+	Mode        string     `json:"mode"`                  // none, oidc, proxy
+	AccountName string     `json:"accountName,omitempty"` // « Se connecter avec … » ; vide : « Se connecter »
+	GuestPlay   bool       `json:"guestPlay"`             // jouer sans compte est permis
+	OIDC        *OIDCInfo  `json:"oidc,omitempty"`
+	Proxy       *ProxyInfo `json:"proxy,omitempty"`
+}
+
+// ProxyInfo : où envoyer pour se connecter ou se déconnecter (chez le proxy).
+type ProxyInfo struct {
+	LoginURL  string `json:"loginUrl,omitempty"`
+	LogoutURL string `json:"logoutUrl,omitempty"`
 }
 
 type OIDCInfo struct {
@@ -46,8 +57,9 @@ type OIDCInfo struct {
 }
 
 const (
-	ModeNone = "none"
-	ModeOIDC = "oidc"
+	ModeNone  = "none"
+	ModeOIDC  = "oidc"
+	ModeProxy = "proxy"
 )
 
 // Config est la configuration d'authentification d'un jeu.
@@ -58,10 +70,18 @@ type Config struct {
 	OIDCIssuer   string
 	OIDCClientID string
 	OIDCAudience string // vide : OIDCClientID
+
+	ProxyUserHeader string         // vide : Remote-User
+	ProxyNameHeader string         // vide : Remote-Name
+	TrustedProxies  []netip.Prefix // obligatoire en mode proxy
+	ProxyLoginURL   string
+	ProxyLogoutURL  string
 }
 
 // FromEnv lit AUTH_MODE, ACCOUNT_NAME, GUEST_PLAY (vrai par défaut), OIDC_ISSUER,
-// OIDC_CLIENT_ID (défaut : clientID, le nom du jeu) et OIDC_AUDIENCE.
+// OIDC_CLIENT_ID (défaut : clientID, le nom du jeu), OIDC_AUDIENCE, et pour le
+// mode proxy PROXY_USER_HEADER, PROXY_NAME_HEADER, TRUSTED_PROXIES (adresses ou
+// plages séparées par des virgules), PROXY_LOGIN_URL et PROXY_LOGOUT_URL.
 func FromEnv(getenv func(string) string, clientID string) (Config, error) {
 	c := Config{
 		Mode:         strings.ToLower(strings.TrimSpace(getenv("AUTH_MODE"))),
@@ -70,6 +90,21 @@ func FromEnv(getenv func(string) string, clientID string) (Config, error) {
 		OIDCIssuer:   getenv("OIDC_ISSUER"),
 		OIDCClientID: getenv("OIDC_CLIENT_ID"),
 		OIDCAudience: getenv("OIDC_AUDIENCE"),
+
+		ProxyUserHeader: strings.TrimSpace(getenv("PROXY_USER_HEADER")),
+		ProxyNameHeader: strings.TrimSpace(getenv("PROXY_NAME_HEADER")),
+		ProxyLoginURL:   strings.TrimSpace(getenv("PROXY_LOGIN_URL")),
+		ProxyLogoutURL:  strings.TrimSpace(getenv("PROXY_LOGOUT_URL")),
+	}
+	for _, f := range strings.Split(getenv("TRUSTED_PROXIES"), ",") {
+		if f = strings.TrimSpace(f); f == "" {
+			continue
+		}
+		p, err := parsePrefix(f)
+		if err != nil {
+			return c, fmt.Errorf("TRUSTED_PROXIES : %q n'est ni une adresse ni une plage", f)
+		}
+		c.TrustedProxies = append(c.TrustedProxies, p)
 	}
 	if c.OIDCClientID == "" {
 		c.OIDCClientID = clientID
@@ -118,15 +153,21 @@ func New(ctx context.Context, c Config, log *slog.Logger) (Authenticator, error)
 		}
 		info.OIDC = &OIDCInfo{Issuer: c.OIDCIssuer, ClientID: c.OIDCClientID}
 		return &OIDC{verifier: v, info: info, log: log}, nil
+	case ModeProxy:
+		if len(c.TrustedProxies) == 0 {
+			return nil, fmt.Errorf("AUTH_MODE=proxy : TRUSTED_PROXIES est nécessaire (adresse du reverse proxy)")
+		}
+		info.Proxy = &ProxyInfo{LoginURL: c.ProxyLoginURL, LogoutURL: c.ProxyLogoutURL}
+		return newProxy(c, info), nil
 	}
-	return nil, fmt.Errorf("AUTH_MODE : %q inconnu (none, oidc)", c.Mode)
+	return nil, fmt.Errorf("AUTH_MODE : %q inconnu (none, oidc, proxy)", c.Mode)
 }
 
 // None : pas de comptes.
 type None struct{}
 
 func (None) User(*http.Request) *User { return nil }
-func (None) Info() Info              { return Info{Mode: ModeNone, GuestPlay: true} }
+func (None) Info() Info               { return Info{Mode: ModeNone, GuestPlay: true} }
 
 // Func adapte une fonction en Authenticator, pour les tests des jeux.
 type Func func(r *http.Request) *User
