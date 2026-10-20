@@ -52,6 +52,7 @@ func (t *Theme) defaults() {
 
 type page struct {
 	Theme      Theme
+	FontCSS    template.CSS // Theme.Font, donnée par le jeu (pas par un visiteur) : sûre en CSS
 	Title      string
 	Flash      string
 	Error      string
@@ -76,6 +77,7 @@ type page struct {
 
 func (l *Local) render(w http.ResponseWriter, status int, name string, p page) {
 	p.Theme = l.theme
+	p.FontCSS = template.CSS(l.theme.Font)
 	p.Signup = l.signup
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
