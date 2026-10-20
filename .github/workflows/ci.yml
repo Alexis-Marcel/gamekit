@@ -8,6 +8,18 @@ on:
 jobs:
   go:
     runs-on: ubuntu-latest
+    services:
+      # Le stockage des comptes locaux est testé sur SQLite et sur Postgres.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: gamekit
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 2s --health-timeout 5s --health-retries 20
+    env:
+      GAMEKIT_TEST_POSTGRES: postgres://postgres:test@localhost:5432/gamekit?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
