@@ -30,7 +30,8 @@ func newProvider(t *testing.T) *provider {
 	p := &provider{key: key}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]string{"issuer": p.URL + "/", "jwks_uri": p.URL + "/jwks"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"issuer": p.URL + "/", "jwks_uri": p.URL + "/jwks",
+			"authorization_endpoint": p.URL + "/authorize", "token_endpoint": p.URL + "/token", "end_session_endpoint": p.URL + "/end"})
 	})
 	mux.HandleFunc("/jwks", func(w http.ResponseWriter, r *http.Request) {
 		b64 := base64.RawURLEncoding.EncodeToString
@@ -80,6 +81,9 @@ func TestOIDC(t *testing.T) {
 	info := a.Info()
 	if info.Mode != ModeOIDC || info.OIDC == nil || info.OIDC.ClientID != "jeu" || info.AccountName != "Eriphe" {
 		t.Fatalf("info %+v", info)
+	}
+	if m := info.OIDC.Metadata; m == nil || m.AuthorizationEndpoint != p.URL+"/authorize" || m.TokenEndpoint != p.URL+"/token" || m.Issuer != p.URL+"/" {
+		t.Fatalf("métadonnées %+v", info.OIDC.Metadata)
 	}
 	if u := a.User(request(p.token(t, p.key, nil))); u == nil || u.ID != "u1" || u.Name != "Alice" || u.Email != "alice@example.com" {
 		t.Fatalf("jeton valide : %+v", u)

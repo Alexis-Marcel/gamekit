@@ -59,6 +59,21 @@ type ProxyInfo struct {
 type OIDCInfo struct {
 	Issuer   string `json:"issuer"`
 	ClientID string `json:"clientId"`
+	// Metadata : la découverte déjà faite par le serveur au démarrage. Le front
+	// la passe à son client OIDC et s'épargne un aller-retour chez le
+	// fournisseur à chaque chargement.
+	Metadata *Metadata `json:"metadata,omitempty"`
+}
+
+// Metadata reprend les champs de /.well-known/openid-configuration dont un
+// client navigateur a besoin, sous leurs noms standard.
+type Metadata struct {
+	Issuer                string `json:"issuer"`
+	AuthorizationEndpoint string `json:"authorization_endpoint"`
+	TokenEndpoint         string `json:"token_endpoint"`
+	UserinfoEndpoint      string `json:"userinfo_endpoint,omitempty"`
+	EndSessionEndpoint    string `json:"end_session_endpoint,omitempty"`
+	JWKSURI               string `json:"jwks_uri"`
 }
 
 const (
@@ -165,7 +180,7 @@ func New(ctx context.Context, c Config, log *slog.Logger) (Authenticator, error)
 		if err != nil {
 			return nil, err
 		}
-		info.OIDC = &OIDCInfo{Issuer: c.OIDCIssuer, ClientID: c.OIDCClientID}
+		info.OIDC = &OIDCInfo{Issuer: c.OIDCIssuer, ClientID: c.OIDCClientID, Metadata: v.metadata}
 		return &OIDC{verifier: v, info: info, log: log}, nil
 	case ModeProxy:
 		if len(c.TrustedProxies) == 0 {

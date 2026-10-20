@@ -47,7 +47,8 @@ type tokenClaims struct {
 
 // Verifier vérifie les jetons d'accès d'un fournisseur OIDC.
 type Verifier struct {
-	keyfunc jwt.Keyfunc
+	keyfunc  jwt.Keyfunc
+	metadata *Metadata
 }
 
 // NewVerifier découvre la JWKS du fournisseur et épingle iss et aud : un jeton
@@ -66,10 +67,7 @@ func NewVerifier(ctx context.Context, issuer, audience string) (*Verifier, error
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("découverte OIDC : HTTP %d", res.StatusCode)
 	}
-	var doc struct {
-		Issuer  string `json:"issuer"`
-		JWKSURI string `json:"jwks_uri"`
-	}
+	var doc Metadata
 	if err := json.NewDecoder(res.Body).Decode(&doc); err != nil {
 		return nil, fmt.Errorf("découverte OIDC : %w", err)
 	}
@@ -80,7 +78,11 @@ func NewVerifier(ctx context.Context, issuer, audience string) (*Verifier, error
 	if err != nil {
 		return nil, fmt.Errorf("JWKS : %w", err)
 	}
-	return &Verifier{keyfunc: pinClaims(kf.Keyfunc, doc.Issuer, audience)}, nil
+	var meta *Metadata
+	if doc.AuthorizationEndpoint != "" && doc.TokenEndpoint != "" {
+		meta = &doc
+	}
+	return &Verifier{keyfunc: pinClaims(kf.Keyfunc, doc.Issuer, audience), metadata: meta}, nil
 }
 
 func pinClaims(kf jwt.Keyfunc, issuer, audience string) jwt.Keyfunc {
