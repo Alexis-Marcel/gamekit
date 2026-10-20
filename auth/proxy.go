@@ -18,18 +18,21 @@ import (
 // remplit comme il veut. Le jeu ne doit donc être joignable que par le proxy,
 // ou TrustedProxies ne doit contenir que l'adresse du proxy.
 type Proxy struct {
-	userHeader, nameHeader string
-	trusted                []netip.Prefix
-	info                   Info
+	userHeader, nameHeader, emailHeader string
+	trusted                             []netip.Prefix
+	info                                Info
 }
 
 func newProxy(c Config, info Info) *Proxy {
-	p := &Proxy{userHeader: c.ProxyUserHeader, nameHeader: c.ProxyNameHeader, trusted: c.TrustedProxies, info: info}
+	p := &Proxy{userHeader: c.ProxyUserHeader, nameHeader: c.ProxyNameHeader, emailHeader: c.ProxyEmailHeader, trusted: c.TrustedProxies, info: info}
 	if p.userHeader == "" {
 		p.userHeader = "Remote-User"
 	}
 	if p.nameHeader == "" {
 		p.nameHeader = "Remote-Name"
+	}
+	if p.emailHeader == "" {
+		p.emailHeader = "Remote-Email"
 	}
 	return p
 }
@@ -48,7 +51,7 @@ func (p *Proxy) User(r *http.Request) *User {
 	if name == "" {
 		name = id
 	}
-	return &User{ID: id, Name: name}
+	return &User{ID: id, Name: name, Email: clean(r.Header.Get(p.emailHeader))}
 }
 
 func (p *Proxy) fromTrusted(r *http.Request) bool {

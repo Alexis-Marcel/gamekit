@@ -20,6 +20,7 @@ La méthode se choisit par variables d'environnement, à la manière des apps *a
 | `TRUSTED_PROXIES` | mode `proxy` : adresses ou plages du reverse proxy, séparées par des virgules (obligatoire) | |
 | `PROXY_USER_HEADER` | en-tête de l'identifiant | `Remote-User` |
 | `PROXY_NAME_HEADER` | en-tête du nom affiché | `Remote-Name` |
+| `PROXY_EMAIL_HEADER` | en-tête de l'e-mail (facultatif, pour les jeux qui s'en servent) | `Remote-Email` |
 | `PROXY_LOGIN_URL`, `PROXY_LOGOUT_URL` | pages de connexion et de déconnexion du proxy, pour les boutons de l'interface | aucun bouton |
 | `SIGNUP` | mode `local` : `open` (libre), `invite` (sur lien d'un administrateur) ou `closed` | `invite` |
 

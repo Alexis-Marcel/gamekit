@@ -41,6 +41,7 @@ func (o *OIDC) User(r *http.Request) *User {
 type tokenClaims struct {
 	Name              string `json:"name,omitempty"`
 	PreferredUsername string `json:"preferred_username,omitempty"`
+	Email             string `json:"email,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -111,5 +112,5 @@ func (v *Verifier) Verify(token string) (*User, error) {
 	if name == "" {
 		name = strings.TrimSpace(claims.PreferredUsername)
 	}
-	return &User{ID: claims.Subject, Name: name}, nil
+	return &User{ID: claims.Subject, Name: name, Email: strings.TrimSpace(claims.Email)}, nil
 }

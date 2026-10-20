@@ -46,7 +46,7 @@ func newProvider(t *testing.T) *provider {
 
 func (p *provider) token(t *testing.T, key *rsa.PrivateKey, claims jwt.MapClaims) string {
 	t.Helper()
-	base := jwt.MapClaims{"iss": p.URL + "/", "aud": "jeu", "sub": "u1", "name": "Alice", "exp": time.Now().Add(time.Hour).Unix()}
+	base := jwt.MapClaims{"iss": p.URL + "/", "aud": "jeu", "sub": "u1", "name": "Alice", "email": "alice@example.com", "exp": time.Now().Add(time.Hour).Unix()}
 	for k, v := range claims {
 		if v == nil {
 			delete(base, k)
@@ -81,7 +81,7 @@ func TestOIDC(t *testing.T) {
 	if info.Mode != ModeOIDC || info.OIDC == nil || info.OIDC.ClientID != "jeu" || info.AccountName != "Eriphe" {
 		t.Fatalf("info %+v", info)
 	}
-	if u := a.User(request(p.token(t, p.key, nil))); u == nil || u.ID != "u1" || u.Name != "Alice" {
+	if u := a.User(request(p.token(t, p.key, nil))); u == nil || u.ID != "u1" || u.Name != "Alice" || u.Email != "alice@example.com" {
 		t.Fatalf("jeton valide : %+v", u)
 	}
 	if u := a.User(request(p.token(t, p.key, jwt.MapClaims{"name": nil, "preferred_username": "alice"}))); u == nil || u.Name != "alice" {

@@ -25,9 +25,11 @@ import (
 )
 
 // User est un compte : ID est stable (le sub OIDC), Name est le nom affiché.
+// Email est facultatif : donné par le fournisseur OIDC ou par le proxy.
 type User struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"-"` // jamais renvoyé au front par défaut
 }
 
 // Authenticator renvoie le compte d'une requête, nil pour un invité (pas de
@@ -75,11 +77,12 @@ type Config struct {
 	OIDCClientID string
 	OIDCAudience string // vide : OIDCClientID
 
-	ProxyUserHeader string         // vide : Remote-User
-	ProxyNameHeader string         // vide : Remote-Name
-	TrustedProxies  []netip.Prefix // obligatoire en mode proxy
-	ProxyLoginURL   string
-	ProxyLogoutURL  string
+	ProxyUserHeader  string         // vide : Remote-User
+	ProxyNameHeader  string         // vide : Remote-Name
+	ProxyEmailHeader string         // vide : Remote-Email
+	TrustedProxies   []netip.Prefix // obligatoire en mode proxy
+	ProxyLoginURL    string
+	ProxyLogoutURL   string
 
 	Signup     string     // mode local : open, invite (défaut), closed
 	LocalStore LocalStore // mode local : fournie par le jeu, pas par l'environnement
@@ -88,7 +91,7 @@ type Config struct {
 
 // FromEnv lit AUTH_MODE, ACCOUNT_NAME, GUEST_PLAY (vrai par défaut), OIDC_ISSUER,
 // OIDC_CLIENT_ID (défaut : clientID, le nom du jeu), OIDC_AUDIENCE, et pour le
-// mode proxy PROXY_USER_HEADER, PROXY_NAME_HEADER, TRUSTED_PROXIES (adresses ou
+// mode proxy PROXY_USER_HEADER, PROXY_NAME_HEADER, PROXY_EMAIL_HEADER, TRUSTED_PROXIES (adresses ou
 // plages séparées par des virgules), PROXY_LOGIN_URL et PROXY_LOGOUT_URL, et pour
 // le mode local SIGNUP.
 func FromEnv(getenv func(string) string, clientID string) (Config, error) {
@@ -100,11 +103,12 @@ func FromEnv(getenv func(string) string, clientID string) (Config, error) {
 		OIDCClientID: getenv("OIDC_CLIENT_ID"),
 		OIDCAudience: getenv("OIDC_AUDIENCE"),
 
-		ProxyUserHeader: strings.TrimSpace(getenv("PROXY_USER_HEADER")),
-		ProxyNameHeader: strings.TrimSpace(getenv("PROXY_NAME_HEADER")),
-		ProxyLoginURL:   strings.TrimSpace(getenv("PROXY_LOGIN_URL")),
-		ProxyLogoutURL:  strings.TrimSpace(getenv("PROXY_LOGOUT_URL")),
-		Signup:          strings.ToLower(strings.TrimSpace(getenv("SIGNUP"))),
+		ProxyUserHeader:  strings.TrimSpace(getenv("PROXY_USER_HEADER")),
+		ProxyNameHeader:  strings.TrimSpace(getenv("PROXY_NAME_HEADER")),
+		ProxyEmailHeader: strings.TrimSpace(getenv("PROXY_EMAIL_HEADER")),
+		ProxyLoginURL:    strings.TrimSpace(getenv("PROXY_LOGIN_URL")),
+		ProxyLogoutURL:   strings.TrimSpace(getenv("PROXY_LOGOUT_URL")),
+		Signup:           strings.ToLower(strings.TrimSpace(getenv("SIGNUP"))),
 	}
 	for _, f := range strings.Split(getenv("TRUSTED_PROXIES"), ",") {
 		if f = strings.TrimSpace(f); f == "" {

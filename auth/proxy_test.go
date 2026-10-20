@@ -35,7 +35,7 @@ func TestProxy(t *testing.T) {
 		t.Fatalf("info %+v", i)
 	}
 
-	if u := a.User(fromProxy("192.168.1.2:4321", map[string]string{"Remote-User": "alice", "Remote-Name": "Alice Martin"})); u == nil || u.ID != "alice" || u.Name != "Alice Martin" {
+	if u := a.User(fromProxy("192.168.1.2:4321", map[string]string{"Remote-User": "alice", "Remote-Name": "Alice Martin", "Remote-Email": "alice@example.com"})); u == nil || u.ID != "alice" || u.Name != "Alice Martin" || u.Email != "alice@example.com" {
 		t.Fatalf("depuis le proxy : %+v", u)
 	}
 	if u := a.User(fromProxy("10.1.2.3:1", map[string]string{"Remote-User": " bob "})); u == nil || u.ID != "bob" || u.Name != "bob" {
