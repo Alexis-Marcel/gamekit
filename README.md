@@ -65,6 +65,18 @@ if m, ok := a.(auth.Mounter); ok {
 }
 ```
 
+## secure : en-têtes de sécurité
+
+`secure.Headers` enveloppe le handler du jeu et pose sur chaque réponse `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: SAMEORIGIN` et une CSP `frame-ancestors 'self'` (le jeu ne s'affiche pas dans le cadre d'un
+autre site ; il garde ses propres iframes, dont celle du renouvellement silencieux OIDC),
+`Referrer-Policy: strict-origin-when-cross-origin`, et HSTS (un an) quand la requête arrive en HTTPS, directement
+ou d'après `X-Forwarded-Proto`. Un handler peut remplacer un de ces en-têtes.
+
+```go
+httpSrv := &http.Server{Handler: secure.Headers(srv.Handler())}
+```
+
 ## portal : la barre d'un portail (facultative)
 
 Quand un jeu fait partie d'un ensemble d'applications (un portail maison, par exemple), une barre discrète
